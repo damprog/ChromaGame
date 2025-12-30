@@ -1,66 +1,62 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GridCanvas } from "./GridCanvas";
 import type { LevelData } from "../../shared/levelTypes";
+
+import { GridCanvas } from "@/components/editor/GridCanvas";
+import { Toolbox, type Tool } from "@/components/editor/Toolbox";
+import { ObjectList } from "@/components/editor/ObjectList";
+import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
-function pretty(obj: unknown) {
-  return JSON.stringify(obj, null, 2);
-}
-
-function isLikelyLevelData(x: any): x is LevelData {
-  return (
-    x &&
-    x.version === 1 &&
-    x.grid &&
-    typeof x.grid.w === "number" &&
-    typeof x.grid.h === "number" &&
-    Array.isArray(x.objects)
-  );
-}
+import {
+  DEFAULT_LEVEL,
+  pretty,
+  parseJson,
+  isLikelyLevelData,
+  findObject,
+} from "@/lib/level";
 
 const LS_KEY = "chromagame.levelJson.v1";
 
 export default function EditorPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const [tool, setTool] = useState<Tool>("select");
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 
-  const DEFAULT_JSON = pretty({
-    version: 1,
-    meta: { name: "Level 01", author: "you" },
-    grid: { w: 20, h: 12, cellSize: 32 },
-    objects: [],
-  });
-
-  const [jsonText, setJsonText] = useState<string>(DEFAULT_JSON);
+  const [jsonText, setJsonText] = useState<string>(pretty(DEFAULT_LEVEL));
   const [mounted, setMounted] = useState(false);
 
-  const parsed = useMemo(() => {
-    try {
-      const obj = JSON.parse(jsonText);
-      return { ok: true as const, obj };
-    } catch (e: any) {
-      return { ok: false as const, error: e?.message ?? "Invalid JSON" };
-    }
-  }, [jsonText]);
+  // Parse JSON
+  const parsed = useMemo(() => parseJson(jsonText), [jsonText]);
 
+  // Validate level shape
   const levelStatus = useMemo(() => {
     if (!parsed.ok) return { ok: false as const, msg: parsed.error };
-    if (!isLikelyLevelData(parsed.obj))
-      return { ok: false as const, msg: "JSON is valid, but not a LevelData (missing version/grid/objects)." };
-    return { ok: true as const, msg: `OK: ${parsed.obj.grid.w}x${parsed.obj.grid.h}, objects: ${parsed.obj.objects.length}` };
+    if (!isLikelyLevelData(parsed.obj)) {
+      return {
+        ok: false as const,
+        msg: "JSON is valid, but not a LevelData (missing version/grid/objects).",
+      };
+    }
+    return {
+      ok: true as const,
+      msg: `OK: ${parsed.obj.grid.w}x${parsed.obj.grid.h}, objects: ${parsed.obj.objects.length}`,
+    };
   }, [parsed]);
 
+  // Load localStorage after mount (no hydration issues)
   useEffect(() => {
     setMounted(true);
     const saved = window.localStorage.getItem(LS_KEY);
     if (saved) setJsonText(saved);
   }, []);
 
+  // Save to localStorage
   useEffect(() => {
     if (!mounted) return;
     window.localStorage.setItem(LS_KEY, jsonText);
@@ -92,6 +88,14 @@ export default function EditorPage() {
     if (!parsed.ok) return;
     setJsonText(pretty(parsed.obj));
   }
+
+  const level: LevelData | undefined =
+    parsed.ok && isLikelyLevelData(parsed.obj) ? (parsed.obj as LevelData) : undefined;
+
+  const selectedObj = useMemo(() => {
+    if (!level) return undefined;
+    return findObject(level, selectedId);
+  }, [level, selectedId]);
 
   return (
     <div className="h-dvh flex">
@@ -126,10 +130,20 @@ export default function EditorPage() {
           <div className={`text-xs ${levelStatus.ok ? "text-muted-foreground" : "text-destructive"}`}>
             {levelStatus.msg}
           </div>
+
+          {/* Narzędzia (jeszcze nie podpięte do klików w canvas — to Etap 11.1) */}
+          <Toolbox tool={tool} setTool={setTool} />
+
+          {level && (
+            <>
+              <ObjectList level={level} selectedId={selectedId} onSelect={setSelectedId} />
+              <PropertiesPanel obj={selectedObj} />
+            </>
+          )}
         </Card>
 
         <div className="text-xs text-muted-foreground">
-          Następny etap: canvas + paleta elementów.
+          Aktualne narzędzie: <span className="font-mono">{tool}</span>
         </div>
       </aside>
 
@@ -140,17 +154,15 @@ export default function EditorPage() {
         </header>
 
         <div className="flex-1 p-4">
-          {/* 2 kolumny */}
           <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {/* Canvas */}
             <Card className="p-3 h-full flex flex-col gap-2">
               <div className="text-sm font-medium">Preview</div>
 
               <div className="flex-1 min-h-0">
-                {levelStatus.ok ? (
+                {level ? (
                   <div className="h-full">
                     <GridCanvas
-                      level={parsed.obj as LevelData}
+                      level={level}
                       selectedId={selectedId}
                       onObjectClick={(id) => setSelectedId(id)}
                       onCellClick={() => setSelectedId(undefined)}
@@ -164,7 +176,6 @@ export default function EditorPage() {
               </div>
             </Card>
 
-            {/* JSON */}
             <Card className="p-3 h-full flex flex-col gap-2">
               <div className="text-sm font-medium">Level JSON</div>
               <Textarea
