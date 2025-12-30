@@ -1,9 +1,120 @@
+"use client";
+
+import { useMemo, useRef, useState } from "react";
+import type { LevelData } from "../../shared/levelTypes";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+
+function pretty(obj: unknown) {
+  return JSON.stringify(obj, null, 2);
+}
+
+function isLikelyLevelData(x: any): x is LevelData {
+  return (
+    x &&
+    x.version === 1 &&
+    x.grid &&
+    typeof x.grid.w === "number" &&
+    typeof x.grid.h === "number" &&
+    Array.isArray(x.objects)
+  );
+}
+
 export default function EditorPage() {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const [jsonText, setJsonText] = useState<string>(() =>
+    pretty({
+      version: 1,
+      meta: { name: "Level 01", author: "you" },
+      grid: { w: 20, h: 12, cellSize: 32 },
+      objects: [],
+    })
+  );
+
+  const parsed = useMemo(() => {
+    try {
+      const obj = JSON.parse(jsonText);
+      return { ok: true as const, obj };
+    } catch (e: any) {
+      return { ok: false as const, error: e?.message ?? "Invalid JSON" };
+    }
+  }, [jsonText]);
+
+  const levelStatus = useMemo(() => {
+    if (!parsed.ok) return { ok: false as const, msg: parsed.error };
+    if (!isLikelyLevelData(parsed.obj))
+      return { ok: false as const, msg: "JSON is valid, but not a LevelData (missing version/grid/objects)." };
+    return { ok: true as const, msg: `OK: ${parsed.obj.grid.w}x${parsed.obj.grid.h}, objects: ${parsed.obj.objects.length}` };
+  }, [parsed]);
+
+  async function onLoadFile(file: File) {
+    const text = await file.text();
+    setJsonText(text);
+  }
+
+  function onDownload() {
+    if (!parsed.ok) return;
+
+    const filename = "level.json";
+    const blob = new Blob([pretty(parsed.obj)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function onFormat() {
+    if (!parsed.ok) return;
+    setJsonText(pretty(parsed.obj));
+  }
+
   return (
     <div className="h-dvh flex">
-      <aside className="w-72 border-r p-4">
+      <aside className="w-72 border-r p-4 flex flex-col gap-3">
         <div className="font-semibold">Tools</div>
-        <div className="text-sm text-muted-foreground">Paleta / właściwości</div>
+
+        <Card className="p-3 flex flex-col gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onLoadFile(f);
+              e.currentTarget.value = "";
+            }}
+          />
+
+          <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+            Load JSON file
+          </Button>
+
+          <Button onClick={onDownload} disabled={!parsed.ok}>
+            Download JSON
+          </Button>
+
+          <Button variant="outline" onClick={onFormat} disabled={!parsed.ok}>
+            Format
+          </Button>
+
+          <div className={`text-xs ${levelStatus.ok ? "text-muted-foreground" : "text-destructive"}`}>
+            {levelStatus.msg}
+          </div>
+        </Card>
+
+        <div className="text-xs text-muted-foreground">
+          Następny etap: canvas + paleta elementów.
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col">
@@ -13,8 +124,15 @@ export default function EditorPage() {
         </header>
 
         <div className="flex-1 p-4">
-          <div className="h-full rounded-md border flex items-center justify-center text-muted-foreground">
-            Canvas placeholder
+          <div className="h-full grid grid-rows-[1fr] gap-3">
+            <Card className="p-3 h-full flex flex-col gap-2">
+              <div className="text-sm font-medium">Level JSON</div>
+              <Textarea
+                className="flex-1 font-mono text-xs"
+                value={jsonText}
+                onChange={(e) => setJsonText(e.target.value)}
+              />
+            </Card>
           </div>
         </div>
       </main>
