@@ -1,0 +1,6 @@
+﻿{
+  "version": 1,
+  "meta": { "name": "Level 01", "author": "you" },
+  "grid": { "w": 20, "h": 12, "cellSize": 32 },
+  "objects": []
+}
