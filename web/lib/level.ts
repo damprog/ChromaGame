@@ -89,3 +89,9 @@ export function findObject(level: LevelData, id?: string): LevelObject | undefin
   if (!id) return undefined;
   return level.objects.find((o) => o.id === id);
 }
+
+export function updateObject(level: LevelData, id: string, patch: Partial<LevelObject>) {
+  const idx = level.objects.findIndex((o) => o.id === id);
+  if (idx === -1) return;
+  level.objects[idx] = { ...level.objects[idx], ...patch } as any;
+}

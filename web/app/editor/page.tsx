@@ -20,7 +20,8 @@ import {
   findObject,
   cloneLevel,
   addObjectAt,
-  removeObjectById
+  removeObjectById,
+  updateObject
 } from "@/lib/level";
 
 
@@ -142,13 +143,19 @@ export default function EditorPage() {
             {levelStatus.msg}
           </div>
 
-          {/* Narzędzia (jeszcze nie podpięte do klików w canvas — to Etap 11.1) */}
+          {/* Narzędzia (podpięcie do klików w canvas — to Etap 11.1) */}
           <Toolbox tool={tool} setTool={setTool} />
 
           {level && (
             <>
               <ObjectList level={level} selectedId={selectedId} onSelect={setSelectedId} />
-              <PropertiesPanel obj={selectedObj} />
+              <PropertiesPanel
+                obj={selectedObj}
+                onUpdate={(id, patch) => {
+                  updateLevel((lvl) => updateObject(lvl, id, patch));
+                }}
+              />
+
             </>
           )}
         </Card>
