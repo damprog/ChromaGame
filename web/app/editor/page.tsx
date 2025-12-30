@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { GridCanvas } from "./GridCanvas";
 import type { LevelData } from "../../shared/levelTypes";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ function isLikelyLevelData(x: any): x is LevelData {
 
 export default function EditorPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 
   const [jsonText, setJsonText] = useState<string>(() =>
     pretty({
@@ -124,11 +126,35 @@ export default function EditorPage() {
         </header>
 
         <div className="flex-1 p-4">
-          <div className="h-full grid grid-rows-[1fr] gap-3">
+          {/* 2 kolumny */}
+          <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Canvas */}
+            <Card className="p-3 h-full flex flex-col gap-2">
+              <div className="text-sm font-medium">Preview</div>
+
+              <div className="flex-1 min-h-0">
+                {levelStatus.ok ? (
+                  <div className="h-full">
+                    <GridCanvas
+                      level={parsed.obj as LevelData}
+                      selectedId={selectedId}
+                      onObjectClick={(id) => setSelectedId(id)}
+                      onCellClick={() => setSelectedId(undefined)}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-full rounded-md border flex items-center justify-center text-muted-foreground">
+                    Fix JSON to see preview
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* JSON */}
             <Card className="p-3 h-full flex flex-col gap-2">
               <div className="text-sm font-medium">Level JSON</div>
               <Textarea
-                className="flex-1 font-mono text-xs"
+                className="flex-1 min-h-0 font-mono text-xs"
                 value={jsonText}
                 onChange={(e) => setJsonText(e.target.value)}
               />
