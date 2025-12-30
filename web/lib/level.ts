@@ -47,8 +47,10 @@ export function nextId(prefix: string, objects: { id: string }[]) {
 }
 
 export function addObjectAt(level: LevelData, tool: "laser" | "mirror" | "wall" | "target", x: number, y: number) {
-  const exists = level.objects.some((o) => o.x === x && o.y === y);
-  if (exists) return;
+  x = clamp(x, 0, level.grid.w - 1);
+  y = clamp(y, 0, level.grid.h - 1);
+
+  if (isCellOccupied(level, x, y)) return;
 
   if (tool === "laser") {
     level.objects.push({
@@ -94,4 +96,25 @@ export function updateObject(level: LevelData, id: string, patch: Partial<LevelO
   const idx = level.objects.findIndex((o) => o.id === id);
   if (idx === -1) return;
   level.objects[idx] = { ...level.objects[idx], ...patch } as any;
+}
+
+export function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+export function isCellOccupied(level: LevelData, x: number, y: number, exceptId?: string) {
+  return level.objects.some(o => o.x === x && o.y === y && o.id !== exceptId);
+}
+
+export function tryMoveObject(level: LevelData, id: string, x: number, y: number) {
+  const obj = level.objects.find(o => o.id === id);
+  if (!obj) return;
+
+  x = clamp(x, 0, level.grid.w - 1);
+  y = clamp(y, 0, level.grid.h - 1);
+
+  if (isCellOccupied(level, x, y, id)) return; // blokada kolizji
+
+  obj.x = x;
+  obj.y = y;
 }

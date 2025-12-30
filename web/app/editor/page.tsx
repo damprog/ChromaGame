@@ -21,7 +21,8 @@ import {
   cloneLevel,
   addObjectAt,
   removeObjectById,
-  updateObject
+  updateObject,
+  tryMoveObject
 } from "@/lib/level";
 
 
@@ -71,6 +72,33 @@ export default function EditorPage() {
     const text = await file.text();
     setJsonText(text);
   }
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Delete") {
+        if (!selectedId) return;
+        updateLevel((lvl) => removeObjectById(lvl, selectedId));
+        setSelectedId(undefined);
+        return;
+      }
+
+      // 1-6 tools
+      const map: Record<string, Tool> = {
+        "1": "select",
+        "2": "erase",
+        "3": "laser",
+        "4": "mirror",
+        "5": "wall",
+        "6": "target",
+      };
+      const t = map[e.key];
+      if (t) setTool(t);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId, updateLevel]);
+
 
   function onDownload() {
     if (!parsed.ok) return;
@@ -153,6 +181,9 @@ export default function EditorPage() {
                 obj={selectedObj}
                 onUpdate={(id, patch) => {
                   updateLevel((lvl) => updateObject(lvl, id, patch));
+                }}
+                onMove={(id, x, y) => {
+                  updateLevel((lvl) => tryMoveObject(lvl, id, x, y));
                 }}
               />
 

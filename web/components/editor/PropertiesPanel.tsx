@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 export function PropertiesPanel({
   obj,
   onUpdate,
+  onMove,
 }: {
   obj?: LevelObject;
   onUpdate: (id: string, patch: Partial<LevelObject>) => void;
+  onMove: (id: string, x: number, y: number) => void;
 }) {
   if (!obj) {
     return (
@@ -41,14 +43,14 @@ export function PropertiesPanel({
           <div className="text-xs text-muted-foreground">x</div>
           <Input
             value={obj.x}
-            onChange={(e) => onUpdate(obj.id, { x: num(e.target.value) } as any)}
+            onChange={(e) => onMove(obj.id, num(e.target.value), obj.y)}
           />
         </div>
         <div className="flex flex-col gap-1">
           <div className="text-xs text-muted-foreground">y</div>
           <Input
             value={obj.y}
-            onChange={(e) => onUpdate(obj.id, { y: num(e.target.value) } as any)}
+            onChange={(e) => onMove(obj.id, obj.x, num(e.target.value))}
           />
         </div>
       </div>
