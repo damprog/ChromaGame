@@ -137,3 +137,92 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+
+# ===
+# Generated with ChatGPT
+# ===
+
+# =========================
+# OS / Editor / IDE
+# =========================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+.vs/
+.vscode/
+.idea/
+*.user
+*.users
+*.suo
+*.sln.docstates
+
+# =========================
+# CMake / C++ build outputs
+# =========================
+# Common build dirs (keep your source CMakeLists.txt tracked)
+build/
+_build/
+out/
+dist/
+bin/
+obj/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+Makefile
+*.ninja
+.ninja_*
+compile_commands.json
+
+# Static/Dynamic libs & objects
+*.o
+*.obj
+*.lo
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+
+# =========================
+# Node / Web (Next.js, Vite, etc.)
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Next.js / React / tooling caches
+.next/
+out/
+dist/
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+
+# Env files (do not commit secrets)
+.env
+.env.*
+!.env.example
+
+# =========================
+# Misc
+# =========================
+*.tmp
+*.temp
+*.swp
+*.bak
