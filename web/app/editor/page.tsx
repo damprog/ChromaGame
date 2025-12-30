@@ -216,7 +216,6 @@ export default function EditorPage() {
                       onClick={({ x, y, hitId }) => {
                         if (!level) return;
 
-                        // ERASE: usuń obiekt jeśli klik w niego
                         if (tool === "erase") {
                           if (!hitId) return;
                           updateLevel((lvl) => removeObjectById(lvl, hitId));
@@ -224,22 +223,29 @@ export default function EditorPage() {
                           return;
                         }
 
-                        // SELECT: klik w obiekt = zaznacz, klik w pustkę = odznacz
                         if (tool === "select") {
                           setSelectedId(hitId);
                           return;
                         }
 
-                        // Dodawanie: jeśli klik w istniejący obiekt, to tylko select
                         if (hitId) {
                           setSelectedId(hitId);
                           return;
                         }
 
-                        // Dodaj obiekt na pustej komórce
                         updateLevel((lvl) => addObjectAt(lvl, tool, x, y));
                       }}
+                      onDrag={({ id, x, y, phase }) => {
+                        // zawsze zaznacz podczas przeciągania
+                        setSelectedId(id);
+
+                        // move/end: próbuj przesunąć obiekt
+                        if (phase === "move" || phase === "end") {
+                          updateLevel((lvl) => tryMoveObject(lvl, id, x, y));
+                        }
+                      }}
                     />
+
 
                   </div>
                 ) : (
