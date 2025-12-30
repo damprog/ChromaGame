@@ -18,7 +18,11 @@ import {
   parseJson,
   isLikelyLevelData,
   findObject,
+  cloneLevel,
+  addObjectAt,
+  removeObjectById
 } from "@/lib/level";
+
 
 const LS_KEY = "chromagame.levelJson.v1";
 
@@ -87,6 +91,13 @@ export default function EditorPage() {
   function onFormat() {
     if (!parsed.ok) return;
     setJsonText(pretty(parsed.obj));
+  }
+
+  function updateLevel(mutator: (lvl: LevelData) => void) {
+    if (!level) return;
+    const next = cloneLevel(level);
+    mutator(next);
+    setJsonText(pretty(next));
   }
 
   const level: LevelData | undefined =
@@ -164,9 +175,34 @@ export default function EditorPage() {
                     <GridCanvas
                       level={level}
                       selectedId={selectedId}
-                      onObjectClick={(id) => setSelectedId(id)}
-                      onCellClick={() => setSelectedId(undefined)}
+                      onClick={({ x, y, hitId }) => {
+                        if (!level) return;
+
+                        // ERASE: usuń obiekt jeśli klik w niego
+                        if (tool === "erase") {
+                          if (!hitId) return;
+                          updateLevel((lvl) => removeObjectById(lvl, hitId));
+                          if (selectedId === hitId) setSelectedId(undefined);
+                          return;
+                        }
+
+                        // SELECT: klik w obiekt = zaznacz, klik w pustkę = odznacz
+                        if (tool === "select") {
+                          setSelectedId(hitId);
+                          return;
+                        }
+
+                        // Dodawanie: jeśli klik w istniejący obiekt, to tylko select
+                        if (hitId) {
+                          setSelectedId(hitId);
+                          return;
+                        }
+
+                        // Dodaj obiekt na pustej komórce
+                        updateLevel((lvl) => addObjectAt(lvl, tool, x, y));
+                      }}
                     />
+
                   </div>
                 ) : (
                   <div className="h-full rounded-md border flex items-center justify-center text-muted-foreground">

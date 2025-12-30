@@ -6,8 +6,7 @@ import type { LevelData, LevelObject } from "../../shared/levelTypes";
 type Props = {
   level: LevelData;
   selectedId?: string;
-  onCellClick?: (x: number, y: number) => void;
-  onObjectClick?: (id: string) => void;
+  onClick?: (info: { x: number; y: number; hitId?: string }) => void;
 };
 
 function cellToPx(cell: number, cellSize: number) {
@@ -81,7 +80,7 @@ function getCellFromMouse(
   return { x: Math.floor(px / cellSize), y: Math.floor(py / cellSize) };
 }
 
-export function GridCanvas({ level, selectedId, onCellClick, onObjectClick }: Props) {
+export function GridCanvas({ level, selectedId, onClick }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const pxSize = useMemo(() => {
@@ -109,20 +108,13 @@ export function GridCanvas({ level, selectedId, onCellClick, onObjectClick }: Pr
 
     const handleClick = (e: MouseEvent) => {
       const { x, y } = getCellFromMouse(canvas, e, level.grid.cellSize);
-
-      // jeśli klik w obiekt na tej komórce → select
       const hit = level.objects.find(o => o.x === x && o.y === y);
-      if (hit) {
-        onObjectClick?.(hit.id);
-        return;
-      }
-
-      onCellClick?.(x, y);
+      onClick?.({ x, y, hitId: hit?.id });
     };
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [level, onCellClick, onObjectClick]);
+  }, [level, onClick]);
 
   return (
     <div className="overflow-auto rounded-md border">
