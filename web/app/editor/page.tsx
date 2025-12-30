@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GridCanvas } from "./GridCanvas";
 import type { LevelData } from "../../shared/levelTypes";
 
@@ -23,18 +23,21 @@ function isLikelyLevelData(x: any): x is LevelData {
   );
 }
 
+const LS_KEY = "chromagame.levelJson.v1";
+
 export default function EditorPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 
-  const [jsonText, setJsonText] = useState<string>(() =>
-    pretty({
-      version: 1,
-      meta: { name: "Level 01", author: "you" },
-      grid: { w: 20, h: 12, cellSize: 32 },
-      objects: [],
-    })
-  );
+  const DEFAULT_JSON = pretty({
+    version: 1,
+    meta: { name: "Level 01", author: "you" },
+    grid: { w: 20, h: 12, cellSize: 32 },
+    objects: [],
+  });
+
+  const [jsonText, setJsonText] = useState<string>(DEFAULT_JSON);
+  const [mounted, setMounted] = useState(false);
 
   const parsed = useMemo(() => {
     try {
@@ -51,6 +54,17 @@ export default function EditorPage() {
       return { ok: false as const, msg: "JSON is valid, but not a LevelData (missing version/grid/objects)." };
     return { ok: true as const, msg: `OK: ${parsed.obj.grid.w}x${parsed.obj.grid.h}, objects: ${parsed.obj.objects.length}` };
   }, [parsed]);
+
+  useEffect(() => {
+    setMounted(true);
+    const saved = window.localStorage.getItem(LS_KEY);
+    if (saved) setJsonText(saved);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    window.localStorage.setItem(LS_KEY, jsonText);
+  }, [mounted, jsonText]);
 
   async function onLoadFile(file: File) {
     const text = await file.text();
