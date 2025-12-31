@@ -1,5 +1,8 @@
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <filesystem>
 
 #include "LevelIO.h"
 #include "LevelValidate.h"
@@ -54,6 +57,20 @@ int main() {
 
   if (tr.hitWall) std::cout << "Hit wall.\n";
   if (tr.hitTarget) std::cout << "Hit target: " << tr.hitTargetId << "\n";
+
+  // Export JSON
+  const std::string outDir = JoinPath(root, "shared/out");
+  const std::string outPath = JoinPath(root, "shared/out/trace.json");
+
+  // utwórz folder jeśli nie istnieje
+  std::filesystem::create_directories(outDir);
+
+  const auto j = TraceResultToJson(tr);
+  std::ofstream o(outPath, std::ios::binary);
+  o << j.dump(2);
+
+  std::cout << "Wrote trace: " << outPath << "\n";
+
 
   return 0;
 }

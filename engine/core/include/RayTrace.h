@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include "Level.h"
+#include <nlohmann/json_fwd.hpp>
 
 enum class Dir { N, E, S, W };
 
@@ -18,3 +19,6 @@ struct TraceResult {
 };
 
 TraceResult TraceFirstLaser(const Level& level);
+
+// zapis wyniku trace do json (nlohmann::json)
+nlohmann::json TraceResultToJson(const TraceResult& tr);

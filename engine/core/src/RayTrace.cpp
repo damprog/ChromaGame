@@ -1,5 +1,6 @@
 #include "RayTrace.h"
 #include <unordered_map>
+#include <nlohmann/json.hpp>
 
 static Dir ParseDir(const std::string& s) {
   if (s == "N") return Dir::N;
@@ -128,4 +129,23 @@ TraceResult TraceFirstLaser(const Level& level) {
   // safety end
   res.segments.push_back({ sx, sy, x, y });
   return res;
+}
+
+nlohmann::json TraceResultToJson(const TraceResult& tr) {
+  using nlohmann::json;
+  json j;
+
+  j["hitWall"] = tr.hitWall;
+  j["hitTarget"] = tr.hitTarget;
+  j["hitTargetId"] = tr.hitTargetId;
+
+  j["segments"] = json::array();
+  for (const auto& s : tr.segments) {
+    j["segments"].push_back({
+      {"x0", s.x0}, {"y0", s.y0},
+      {"x1", s.x1}, {"y1", s.y1},
+      });
+  }
+
+  return j;
 }
