@@ -62,23 +62,29 @@ export default function EditorPage() {
   }, []);
 
   async function loadLevelFromDisk(name: string) {
-    const res = await fetch(`/api/levels/${encodeURIComponent(name)}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const txt = await res.text();
-    setJsonText(txt);               // <- u Ciebie to textarea JSON
-    // jeśli masz parse/validate pipeline, odpal go tu
-  }
+  const file = normalizeLevelName(name);
+  const res = await fetch(`/api/levels/${encodeURIComponent(file)}`, { cache: "no-store" });
+  if (!res.ok) {
+  const msg = await res.text();
+  console.error("Load level failed:", res.status, msg);
+  // np. setUiError(`Load failed: HTTP ${res.status}`);
+  return;
+}
 
-  async function saveLevelToDisk(name: string) {
-    const res = await fetch(`/api/levels/${encodeURIComponent(name)}`, {
-      method: "POST",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: jsonText,               // <- aktualny JSON z edytora
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    await runTrace();
-  }
+  const txt = await res.text();
+  setJsonText(txt);
+}
+
+async function saveLevelToDisk(name: string) {
+  const file = normalizeLevelName(name);
+  const res = await fetch(`/api/levels/${encodeURIComponent(file)}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: jsonText,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
 
   // Parse JSON
   const parsed = useMemo(() => parseJson(jsonText), [jsonText]);
@@ -290,6 +296,17 @@ export default function EditorPage() {
     setJsonText(pretty(next));
   }
 
+  function normalizeLevelName(name: string) {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return "level01.json";
+
+  // usuń ewentualne ścieżki, zostaw tylko nazwę pliku
+  const base = trimmed.split(/[\\/]/).pop()!;
+
+  // żadnych zamian '.' -> '_' !
+  return base.endsWith(".json") ? base : `${base}.json`;
+}
+
   const level: LevelData | undefined =
     parsed.ok && isLikelyLevelData(parsed.obj) ? (parsed.obj as LevelData) : undefined;
 
@@ -316,7 +333,7 @@ export default function EditorPage() {
             }}
           />
 
-          <select value={levelName} onChange={(e) => setLevelName(e.target.value)}>
+          <select value={levelName} onChange={(e) => setLevelName(normalizeLevelName(e.target.value))}>
             {levels.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
 
