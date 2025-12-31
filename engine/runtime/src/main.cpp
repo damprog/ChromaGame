@@ -9,7 +9,7 @@
 #include "PathUtils.h"
 #include "RayTrace.h"
 
-int main() {
+int main(int argc, char** argv) {
   Level level;
   std::string err;
 
@@ -20,7 +20,17 @@ int main() {
     return 1;
   }
 
-  const std::string path = JoinPath(root, "shared/levels/level01.json");
+  std::string levelPath;
+
+  // argv[1] = ścieżka do pliku level .json
+  if (argc >= 2 && argv[1] && std::string(argv[1]).size() > 0) {
+    levelPath = std::string(argv[1]);
+  }
+  else {
+    levelPath = JoinPath(root, "shared/levels/level01.json"); // fallback
+  }
+
+  const std::string path = levelPath;
 
   // Load map and objects
   if (!LoadLevelFromJsonFile(path, level, err)) {

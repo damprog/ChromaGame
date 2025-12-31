@@ -46,33 +46,34 @@ function runOnce(cmd: string, args: string[], cwd: string) {
   });
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   const repoRoot = await findRepoRoot();
 
   const exe =
     process.env.RUN_TRACE_EXE ??
-    path.join(
-      repoRoot,
-      "engine",
-      "out",
-      "build",
-      "x64-Debug",
-      "runtime",
-      "game_runtime.exe"
-    );
+    path.join(repoRoot, "engine", "out", "build", "x64-Debug", "runtime", "game_runtime.exe");
 
   if (!(await exists(exe))) {
-    return NextResponse.json(
-      { ok: false, error: "game_runtime.exe not found", exe, repoRoot, cwd: process.cwd() },
-      { status: 404 }
-    );
+    return NextResponse.json({ ok: false, error: "game_runtime.exe not found", exe }, { status: 404 });
   }
 
-  const { code, out, err } = await runOnce(exe, [], repoRoot);
+  // 1) bierzemy level JSON z requestu
+  const levelJson = await req.text();
+  if (!levelJson || levelJson.trim().length === 0) {
+    return NextResponse.json({ ok: false, error: "Empty request body (expected level JSON)" }, { status: 400 });
+  }
+
+  // 2) zapis do shared/levels/__web_temp_level.json
+  const levelPath = path.join(repoRoot, "shared", "levels", "__web_temp_level.json");
+  await fs.mkdir(path.dirname(levelPath), { recursive: true });
+  await fs.writeFile(levelPath, levelJson, "utf8");
+
+  // 3) uruchom runtime z argumentem ścieżki levela
+  const { code, out, err } = await runOnce(exe, [levelPath], repoRoot);
 
   if (code !== 0) {
     return NextResponse.json({ ok: false, code, out, err }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, code, out, err });
+  return NextResponse.json({ ok: true, code, out, err, levelPath });
 }

@@ -113,6 +113,13 @@ export default function EditorPage() {
   }
 
   async function runTrace() {
+    if (!parsed.ok || !isLikelyLevelData(parsed.obj)) {
+      setRunStatus("error");
+      setRunError("Level JSON is invalid — cannot run trace.");
+      return;
+    }
+
+
     setRunStatus("running");
     setRunError(null);
     setRunOut(null);
@@ -124,6 +131,8 @@ export default function EditorPage() {
       const res = await fetch("/api/trace/run", {
         method: "POST",
         cache: "no-store",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: jsonText, // wysyłamy dokładnie to co edytujesz
       });
 
       // endpoint powinien zwracać JSON { ok, out, err, code } — ale robimy bezpiecznie:

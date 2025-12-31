@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "meta": {
+    "name": "Level 01",
+    "author": "you"
+  },
+  "grid": {
+    "w": 20,
+    "h": 12,
+    "cellSize": 32
+  },
+  "objects": [
+    {
+      "id": "L3",
+      "type": "laser",
+      "x": 4,
+      "y": 1,
+      "dir": "E",
+      "color": "R"
+    },
+    {
+      "id": "M3",
+      "type": "mirror",
+      "x": 6,
+      "y": 1,
+      "angle": 45
+    },
+    {
+      "id": "T2",
+      "type": "target",
+      "x": 6,
+      "y": 5,
+      "accept": [
+        "R"
+      ]
+    }
+  ]
+}
