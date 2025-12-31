@@ -49,6 +49,37 @@ export default function EditorPage() {
   const [runOut, setRunOut] = useState<string | null>(null);
   const [runErr, setRunErr] = useState<string | null>(null);
 
+  const [levels, setLevels] = useState<string[]>([]);
+  const [levelName, setLevelName] = useState<string>("level01.json");
+
+  // load levels
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/levels", { cache: "no-store" });
+      const j = await res.json();
+      if (j?.ok) setLevels(j.levels);
+    })();
+  }, []);
+
+  async function loadLevelFromDisk(name: string) {
+    const res = await fetch(`/api/levels/${encodeURIComponent(name)}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const txt = await res.text();
+    setJsonText(txt);               // <- u Ciebie to textarea JSON
+    // jeśli masz parse/validate pipeline, odpal go tu
+  }
+
+  async function saveLevelToDisk(name: string) {
+    const res = await fetch(`/api/levels/${encodeURIComponent(name)}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: jsonText,               // <- aktualny JSON z edytora
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    await runTrace();
+  }
+
   // Parse JSON
   const parsed = useMemo(() => parseJson(jsonText), [jsonText]);
 
@@ -284,6 +315,13 @@ export default function EditorPage() {
               e.currentTarget.value = "";
             }}
           />
+
+          <select value={levelName} onChange={(e) => setLevelName(e.target.value)}>
+            {levels.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+
+          <Button onClick={() => void loadLevelFromDisk(levelName)}>Load</Button>
+          <Button onClick={() => void saveLevelToDisk(levelName)}>Save</Button>
 
           <Button variant="secondary" onClick={() => fileRef.current?.click()}>
             Load JSON file
