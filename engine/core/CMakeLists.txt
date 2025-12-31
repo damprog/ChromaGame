@@ -1,6 +1,8 @@
 add_library(engine_core STATIC
   src/core_dummy.cpp
   src/LevelIO.cpp
+  src/PathUtils.cpp
+  src/LevelValidate.cpp
 )
 
 target_include_directories(engine_core PUBLIC

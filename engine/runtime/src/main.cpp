@@ -2,21 +2,32 @@
 #include <string>
 
 #include "LevelIO.h"
+#include "LevelValidate.h"
+#include "PathUtils.h"
 
 int main() {
   Level level;
   std::string err;
 
-  // ścieżka względna od katalogu roboczego procesu
-  // na start odpalimy z working directory = engine/runtime (ustawimy niżej)
-  const std::string path = "../../../../../shared/levels/level01.json";
+  const std::string root = FindRepoRootOrEmpty();
+  if (root.empty()) {
+    std::cout << "Cannot find repo root (folder 'shared' not found above current working dir)\n";
+    return 1;
+  }
+
+  const std::string path = JoinPath(root, "shared/levels/level01.json");
 
   if (!LoadLevelFromJsonFile(path, level, err)) {
     std::cout << "Load failed: " << err << "\n";
     return 1;
   }
 
-  std::cout << "Loaded level:\n";
+  if (!ValidateLevel(level, err)) {
+    std::cout << "Validate failed: " << err << "\n";
+    return 1;
+  }
+
+  std::cout << "Loaded+validated level:\n";
   std::cout << "  name: " << level.name << "\n";
   std::cout << "  grid: " << level.w << "x" << level.h << " cellSize=" << level.cellSize << "\n";
   std::cout << "  objects: " << level.objects.size() << "\n";
