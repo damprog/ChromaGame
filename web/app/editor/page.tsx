@@ -43,6 +43,12 @@ export default function EditorPage() {
   const [lastTraceAt, setLastTraceAt] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
+  type RunStatus = "idle" | "running" | "ok" | "error";
+  const [runStatus, setRunStatus] = useState<RunStatus>("idle");
+  const [runError, setRunError] = useState<string | null>(null);
+  const [runOut, setRunOut] = useState<string | null>(null);
+  const [runErr, setRunErr] = useState<string | null>(null);
+
   // Parse JSON
   const parsed = useMemo(() => parseJson(jsonText), [jsonText]);
 
@@ -104,6 +110,49 @@ export default function EditorPage() {
     setTraceStatus("ok");
     setLastTraceAt(Date.now());
     return true;
+  }
+
+  async function runTrace() {
+    setRunStatus("running");
+    setRunError(null);
+    setRunOut(null);
+    setRunErr(null);
+
+    let payload: any = null;
+
+    try {
+      const res = await fetch("/api/trace/run", {
+        method: "POST",
+        cache: "no-store",
+      });
+
+      // endpoint powinien zwracać JSON { ok, out, err, code } — ale robimy bezpiecznie:
+      const text = await res.text();
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = { ok: res.ok, raw: text };
+      }
+
+      if (!res.ok || payload?.ok === false) {
+        setRunStatus("error");
+        setRunError(`Run failed (HTTP ${res.status})`);
+        if (payload?.out) setRunOut(String(payload.out));
+        if (payload?.err) setRunErr(String(payload.err));
+        if (payload?.raw) setRunErr(String(payload.raw));
+        return;
+      }
+
+      setRunStatus("ok");
+      if (payload?.out) setRunOut(String(payload.out));
+      if (payload?.err) setRunErr(String(payload.err));
+
+      // Najważniejsze: po uruchomieniu runtime od razu zaciągnij świeży trace
+      await refreshTrace();
+    } catch (e: any) {
+      setRunStatus("error");
+      setRunError(String(e?.message ?? e));
+    }
   }
 
   // Refresh
@@ -252,6 +301,32 @@ export default function EditorPage() {
               />
               Auto-refresh
             </label>
+
+            <Button
+              variant="default"
+              onClick={() => void runTrace()}
+              disabled={runStatus === "running"}
+            >
+              {runStatus === "running" ? "Running Trace..." : "Run Trace (C++)"}
+            </Button>
+
+            <div className="text-xs text-muted-foreground">
+              Run: <b>{runStatus}</b>
+              {runError ? <span className="ml-2">• {runError}</span> : null}
+            </div>
+
+            {runOut ? (
+              <pre className="text-xs whitespace-pre-wrap border rounded p-2 max-h-40 overflow-auto">
+                {runOut}
+              </pre>
+            ) : null}
+
+            {runErr ? (
+              <pre className="text-xs whitespace-pre-wrap border rounded p-2 max-h-40 overflow-auto">
+                {runErr}
+              </pre>
+            ) : null}
+
 
             <div className="text-xs text-muted-foreground">
               Status: <b>{traceStatus}</b>

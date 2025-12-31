@@ -28,7 +28,7 @@ async function findTracePath(): Promise<string | null> {
     try {
       await fs.access(candidate);
       return candidate;
-    } catch {}
+    } catch { }
 
     const parent = path.dirname(dir);
     if (parent === dir) break; // doszliśmy do root
