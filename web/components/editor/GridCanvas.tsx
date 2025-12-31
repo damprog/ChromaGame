@@ -111,19 +111,39 @@ export function GridCanvas({ level, selectedId, onClick, onDrag }: Props) {
     if (!canvas) return;
 
     let draggingId: string | undefined;
+    let lastX = -1;
+    let lastY = -1;
+    let downPxX = 0, downPxY = 0;
+    let draggingArmed = false;
 
     const onMouseDown = (e: MouseEvent) => {
       const { x, y } = getCellFromMouse(canvas, e, level.grid.cellSize);
       const hit = level.objects.find((o) => o.x === x && o.y === y);
       if (!hit) return;
-
       draggingId = hit.id;
+      lastX = x;
+      lastY = y;
+      downPxX = e.clientX;
+      downPxY = e.clientY;
+      draggingArmed = true;
       onDrag?.({ id: hit.id, x, y, phase: "start" });
     };
 
     const onMouseMove = (e: MouseEvent) => {
       if (!draggingId) return;
+
+      if (draggingArmed) {
+        const dx = Math.abs(e.clientX - downPxX);
+        const dy = Math.abs(e.clientY - downPxY);
+        if (dx + dy < 4) return; // threshold
+        draggingArmed = false;
+      }
+
       const { x, y } = getCellFromMouse(canvas, e, level.grid.cellSize);
+      if (x === lastX && y === lastY) return;
+      lastX = x;
+      lastY = y;
+
       onDrag?.({ id: draggingId, x, y, phase: "move" });
     };
 
@@ -131,6 +151,7 @@ export function GridCanvas({ level, selectedId, onClick, onDrag }: Props) {
       if (!draggingId) return;
       const id = draggingId;
       draggingId = undefined;
+      draggingArmed = false;
 
       const { x, y } = getCellFromMouse(canvas, e, level.grid.cellSize);
       onDrag?.({ id, x, y, phase: "end" });
