@@ -3,6 +3,7 @@ add_library(engine_core STATIC
   src/LevelIO.cpp
   src/PathUtils.cpp
   src/LevelValidate.cpp
+  src/RayTrace.cpp
 )
 
 target_include_directories(engine_core PUBLIC
