@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LevelData } from "../../shared/levelTypes";
+import type { TraceJson } from "@/shared/trace";
 
 import { GridCanvas } from "@/components/editor/GridCanvas";
 import { Toolbox, type Tool } from "@/components/editor/Toolbox";
@@ -36,7 +37,7 @@ export default function EditorPage() {
   const [mounted, setMounted] = useState(false);
 
   type TraceStatus = "idle" | "loading" | "ok" | "missing" | "error";
-  const [trace, setTrace] = useState<any>(null);
+  const [trace, setTrace] = useState<TraceJson | null>(null);
   const [traceStatus, setTraceStatus] = useState<TraceStatus>("idle");
   const [traceError, setTraceError] = useState<string | null>(null);
   const [lastTraceAt, setLastTraceAt] = useState<number | null>(null);
@@ -82,7 +83,10 @@ export default function EditorPage() {
     setTraceError(null);
     setTraceStatus("loading");
 
-    const res = await fetch("/api/trace", { cache: "no-store", signal });
+    const res = await fetch("/api/trace", {
+      cache: "no-store",
+      signal,
+    });
 
     if (res.status === 404) {
       setTraceStatus("missing");
@@ -95,7 +99,7 @@ export default function EditorPage() {
       return false;
     }
 
-    const json = await res.json();
+    const json = (await res.json()) as TraceJson;
     setTrace(json);
     setTraceStatus("ok");
     setLastTraceAt(Date.now());
@@ -138,6 +142,7 @@ export default function EditorPage() {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [autoRefresh]);
+
 
   // shortcuts
   useEffect(() => {
@@ -253,12 +258,13 @@ export default function EditorPage() {
               {lastTraceAt ? <span> • {new Date(lastTraceAt).toLocaleTimeString()}</span> : null}
               {traceError ? <span className="ml-2">• {traceError}</span> : null}
             </div>
+
+            {traceStatus === "missing" ? (
+              <div className="text-xs text-muted-foreground">
+                Brak trace.json — uruchom C++ runtime, który generuje shared/out/trace.json
+              </div>
+            ) : null}
           </div>
-
-
-          {traceStatus && (
-            <div className="text-xs text-muted-foreground">{traceStatus}</div>
-          )}
 
           <div className={`text-xs ${levelStatus.ok ? "text-muted-foreground" : "text-destructive"}`}>
             {levelStatus.msg}

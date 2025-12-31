@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import type { LevelData, LevelObject } from "../../shared/levelTypes";
+import type { TraceJson } from "@/shared/trace";
 
 type Props = {
   level: LevelData;
@@ -9,13 +10,6 @@ type Props = {
   trace?: TraceJson | null;
   onClick?: (info: { x: number; y: number; hitId?: string }) => void;
   onDrag?: (info: { id: string; x: number; y: number; phase: "start" | "move" | "end" }) => void;
-};
-
-type TraceJson = {
-  segments: { x0: number; y0: number; x1: number; y1: number }[];
-  hitWall?: boolean;
-  hitTarget?: boolean;
-  hitTargetId?: string;
 };
 
 function cellToPx(cell: number, cellSize: number) {
