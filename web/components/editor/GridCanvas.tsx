@@ -6,8 +6,16 @@ import type { LevelData, LevelObject } from "../../shared/levelTypes";
 type Props = {
   level: LevelData;
   selectedId?: string;
+  trace?: TraceJson | null;
   onClick?: (info: { x: number; y: number; hitId?: string }) => void;
   onDrag?: (info: { id: string; x: number; y: number; phase: "start" | "move" | "end" }) => void;
+};
+
+type TraceJson = {
+  segments: { x0: number; y0: number; x1: number; y1: number }[];
+  hitWall?: boolean;
+  hitTarget?: boolean;
+  hitTargetId?: string;
 };
 
 function cellToPx(cell: number, cellSize: number) {
@@ -68,7 +76,7 @@ function getCellFromMouse(canvas: HTMLCanvasElement, e: MouseEvent, cellSize: nu
   return { x: Math.floor(px / cellSize), y: Math.floor(py / cellSize) };
 }
 
-export function GridCanvas({ level, selectedId, onClick, onDrag }: Props) {
+export function GridCanvas({ level, selectedId, onClick, onDrag, trace }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const pxSize = useMemo(() => {
@@ -88,7 +96,27 @@ export function GridCanvas({ level, selectedId, onClick, onDrag }: Props) {
     for (const obj of level.objects) {
       drawObject(ctx, obj, level.grid.cellSize, obj.id === selectedId);
     }
-  }, [level, selectedId, pxSize]);
+
+    // trace overlay
+    if (trace?.segments?.length) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.85)";
+      ctx.lineWidth = 3;
+
+      const cs = level.grid.cellSize;
+      const cx = (gx: number) => gx * cs + cs / 2;
+      const cy = (gy: number) => gy * cs + cs / 2;
+
+      for (const s of trace.segments) {
+        ctx.beginPath();
+        ctx.moveTo(cx(s.x0), cy(s.y0));
+        ctx.lineTo(cx(s.x1), cy(s.y1));
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+  }, [level, selectedId, pxSize, trace]);
 
   // click
   useEffect(() => {

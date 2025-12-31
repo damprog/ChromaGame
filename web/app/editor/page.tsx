@@ -30,10 +30,10 @@ const LS_KEY = "chromagame.levelJson.v1";
 
 export default function EditorPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
-
+  const [trace, setTrace] = useState<any>(null);
+  const [traceStatus, setTraceStatus] = useState<string>("");
   const [tool, setTool] = useState<Tool>("select");
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
-
   const [jsonText, setJsonText] = useState<string>(pretty(DEFAULT_LEVEL));
   const [mounted, setMounted] = useState(false);
 
@@ -73,6 +73,23 @@ export default function EditorPage() {
     setJsonText(text);
   }
 
+  async function loadTrace() {
+    setTraceStatus("Loading...");
+    try {
+      const r = await fetch("/api/trace", { cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error ?? "Failed");
+      setTrace(j);
+      setTraceStatus(
+        `Trace loaded: segments=${j?.segments?.length ?? 0}` +
+        (j?.hitTarget ? `, hitTarget=${j?.hitTargetId ?? ""}` : j?.hitWall ? ", hitWall=true" : "")
+      );
+    } catch (e: any) {
+      setTrace(null);
+      setTraceStatus(`Trace error: ${e?.message ?? String(e)}`);
+    }
+  }
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Delete") {
@@ -98,7 +115,6 @@ export default function EditorPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId, updateLevel]);
-
 
   function onDownload() {
     if (!parsed.ok) return;
@@ -167,6 +183,14 @@ export default function EditorPage() {
             Format
           </Button>
 
+          <Button variant="outline" onClick={loadTrace}>
+            Load Trace (C++)
+          </Button>
+
+          {traceStatus && (
+            <div className="text-xs text-muted-foreground">{traceStatus}</div>
+          )}
+
           <div className={`text-xs ${levelStatus.ok ? "text-muted-foreground" : "text-destructive"}`}>
             {levelStatus.msg}
           </div>
@@ -213,6 +237,7 @@ export default function EditorPage() {
                     <GridCanvas
                       level={level}
                       selectedId={selectedId}
+                      trace={trace}
                       onClick={({ x, y, hitId }) => {
                         if (!level) return;
 
