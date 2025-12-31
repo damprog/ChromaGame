@@ -1,49 +1,75 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-async function exists(p: string) {
-  try {
-    await fs.stat(p);
-    return true;
-  } catch {
-    return false;
+/**
+ * Szuka shared/out/trace.json idąc w górę od process.cwd().
+ * Dzięki temu działa niezależnie od tego, z jakiego katalogu startuje Next.
+ */
+async function findTracePath(): Promise<string | null> {
+  // 1) Pozwól wymusić ścieżkę env-em (najpewniejsze)
+  const envPath = process.env.TRACE_PATH;
+  if (envPath) {
+    try {
+      await fs.access(envPath);
+      return envPath;
+    } catch {
+      // env ustawiony, ale pliku nie ma → lecimy dalej
+    }
   }
-}
 
-// Szuka najbliższego PRZODKA, w którym istnieje: shared/out/trace.json
-async function findTracePath(startDir: string) {
-  let dir = startDir;
-  for (let i = 0; i < 12; i++) {
+  // 2) Szukanie w górę po katalogach
+  let dir = process.cwd();
+  while (true) {
     const candidate = path.join(dir, "shared", "out", "trace.json");
-    if (await exists(candidate)) return candidate;
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {}
 
     const parent = path.dirname(dir);
-    if (parent === dir) break;
+    if (parent === dir) break; // doszliśmy do root
     dir = parent;
   }
+
   return null;
 }
 
 export async function GET() {
-  const tracePath = await findTracePath(process.cwd());
+  const tracePath = await findTracePath();
+
   if (!tracePath) {
     return NextResponse.json(
-      { error: "trace.json not found (expected shared/out/trace.json above cwd). Run C++ runtime first." },
-      { status: 404 }
+      { ok: false, error: "trace.json not found (expected shared/out/trace.json). Run C++ export first." },
+      {
+        status: 404,
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
     );
   }
 
   try {
-    const text = await fs.readFile(tracePath, "utf8");
-    const json = JSON.parse(text);
-    return NextResponse.json(json);
+    const txt = await fs.readFile(tracePath, "utf8");
+    return new NextResponse(txt, {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (e: any) {
     return NextResponse.json(
-      { error: `Cannot read/parse trace.json: ${e?.message ?? String(e)}` },
-      { status: 500 }
+      { ok: false, error: "Failed to read trace.json", details: String(e?.message ?? e) },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
     );
   }
 }

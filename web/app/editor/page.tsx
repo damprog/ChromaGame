@@ -30,12 +30,17 @@ const LS_KEY = "chromagame.levelJson.v1";
 
 export default function EditorPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const [trace, setTrace] = useState<any>(null);
-  const [traceStatus, setTraceStatus] = useState<string>("");
   const [tool, setTool] = useState<Tool>("select");
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [jsonText, setJsonText] = useState<string>(pretty(DEFAULT_LEVEL));
   const [mounted, setMounted] = useState(false);
+
+  type TraceStatus = "idle" | "loading" | "ok" | "missing" | "error";
+  const [trace, setTrace] = useState<any>(null);
+  const [traceStatus, setTraceStatus] = useState<TraceStatus>("idle");
+  const [traceError, setTraceError] = useState<string | null>(null);
+  const [lastTraceAt, setLastTraceAt] = useState<number | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   // Parse JSON
   const parsed = useMemo(() => parseJson(jsonText), [jsonText]);
@@ -73,23 +78,68 @@ export default function EditorPage() {
     setJsonText(text);
   }
 
-  async function loadTrace() {
-    setTraceStatus("Loading...");
-    try {
-      const r = await fetch("/api/trace", { cache: "no-store" });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j?.error ?? "Failed");
-      setTrace(j);
-      setTraceStatus(
-        `Trace loaded: segments=${j?.segments?.length ?? 0}` +
-        (j?.hitTarget ? `, hitTarget=${j?.hitTargetId ?? ""}` : j?.hitWall ? ", hitWall=true" : "")
-      );
-    } catch (e: any) {
-      setTrace(null);
-      setTraceStatus(`Trace error: ${e?.message ?? String(e)}`);
+  async function refreshTrace(signal?: AbortSignal): Promise<boolean> {
+    setTraceError(null);
+    setTraceStatus("loading");
+
+    const res = await fetch("/api/trace", { cache: "no-store", signal });
+
+    if (res.status === 404) {
+      setTraceStatus("missing");
+      return false;
     }
+
+    if (!res.ok) {
+      setTraceStatus("error");
+      setTraceError(`HTTP ${res.status}`);
+      return false;
+    }
+
+    const json = await res.json();
+    setTrace(json);
+    setTraceStatus("ok");
+    setLastTraceAt(Date.now());
+    return true;
   }
 
+  // Refresh
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    let alive = true;
+    let timeoutId: any = null;
+    const controller = new AbortController();
+
+    const delayOk = 900;
+    const delayFail = 2500;
+
+    const tick = async () => {
+      try {
+        const ok = await refreshTrace(controller.signal);
+        if (!alive) return;
+
+        timeoutId = setTimeout(tick, ok ? delayOk : delayFail);
+      } catch (e: any) {
+        if (String(e?.name) === "AbortError") return;
+
+        setTraceStatus("error");
+        setTraceError(String(e?.message ?? e));
+
+        if (!alive) return;
+        timeoutId = setTimeout(tick, delayFail);
+      }
+    };
+
+    tick();
+
+    return () => {
+      alive = false;
+      controller.abort();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [autoRefresh]);
+
+  // shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Delete") {
@@ -115,6 +165,7 @@ export default function EditorPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId, updateLevel]);
+
 
   function onDownload() {
     if (!parsed.ok) return;
@@ -183,9 +234,27 @@ export default function EditorPage() {
             Format
           </Button>
 
-          <Button variant="outline" onClick={loadTrace}>
-            Load Trace (C++)
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button variant="outline" onClick={() => void refreshTrace()}>
+              Refresh Trace (C++)
+            </Button>
+
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+              />
+              Auto-refresh
+            </label>
+
+            <div className="text-xs text-muted-foreground">
+              Status: <b>{traceStatus}</b>
+              {lastTraceAt ? <span> • {new Date(lastTraceAt).toLocaleTimeString()}</span> : null}
+              {traceError ? <span className="ml-2">• {traceError}</span> : null}
+            </div>
+          </div>
+
 
           {traceStatus && (
             <div className="text-xs text-muted-foreground">{traceStatus}</div>
