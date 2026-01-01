@@ -52,6 +52,27 @@ export default function EditorPage() {
   const [levels, setLevels] = useState<string[]>([]);
   const [levelName, setLevelName] = useState<string>("level01.json");
 
+  //-----------------------
+  // prawdopodonie do przeniesienia w inne miejsce
+  //-----------------------
+
+  function nextLevelFileName(levels: string[]) {
+    let max = 0;
+    for (const f of levels) {
+      const m = /^level(\d+)\.json$/i.exec(f);
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return `level${String(max + 1).padStart(2, "0")}.json`;
+  }
+
+  function fileNameToMetaName(file: string) {
+    const m = /^level(\d+)\.json$/i.exec(file);
+    return m ? `Level ${m[1].padStart(2, "0")}` : file.replace(/\.json$/i, "");
+  }
+
+  //-----------------------
+
+
   // load levels
   useEffect(() => {
     (async () => {
@@ -62,29 +83,29 @@ export default function EditorPage() {
   }, []);
 
   async function loadLevelFromDisk(name: string) {
-  const file = normalizeLevelName(name);
-  const res = await fetch(`/api/levels/${encodeURIComponent(file)}`, { cache: "no-store" });
-  if (!res.ok) {
-  const msg = await res.text();
-  console.error("Load level failed:", res.status, msg);
-  // np. setUiError(`Load failed: HTTP ${res.status}`);
-  return;
-}
+    const file = normalizeLevelName(name);
+    const res = await fetch(`/api/levels/${encodeURIComponent(file)}`, { cache: "no-store" });
+    if (!res.ok) {
+      const msg = await res.text();
+      console.error("Load level failed:", res.status, msg);
+      // np. setUiError(`Load failed: HTTP ${res.status}`);
+      return;
+    }
 
-  const txt = await res.text();
-  setJsonText(txt);
-}
+    const txt = await res.text();
+    setJsonText(txt);
+  }
 
-async function saveLevelToDisk(name: string) {
-  const file = normalizeLevelName(name);
-  const res = await fetch(`/api/levels/${encodeURIComponent(file)}`, {
-    method: "POST",
-    cache: "no-store",
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: jsonText,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-}
+  async function saveLevelToDisk(name: string) {
+    const file = normalizeLevelName(name);
+    const res = await fetch(`/api/levels/${encodeURIComponent(file)}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: jsonText,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  }
 
   // Parse JSON
   const parsed = useMemo(() => parseJson(jsonText), [jsonText]);
@@ -297,15 +318,15 @@ async function saveLevelToDisk(name: string) {
   }
 
   function normalizeLevelName(name: string) {
-  const trimmed = (name ?? "").trim();
-  if (!trimmed) return "level01.json";
+    const trimmed = (name ?? "").trim();
+    if (!trimmed) return "level01.json";
 
-  // usuń ewentualne ścieżki, zostaw tylko nazwę pliku
-  const base = trimmed.split(/[\\/]/).pop()!;
+    // usuń ewentualne ścieżki, zostaw tylko nazwę pliku
+    const base = trimmed.split(/[\\/]/).pop()!;
 
-  // żadnych zamian '.' -> '_' !
-  return base.endsWith(".json") ? base : `${base}.json`;
-}
+    // żadnych zamian '.' -> '_' !
+    return base.endsWith(".json") ? base : `${base}.json`;
+  }
 
   const level: LevelData | undefined =
     parsed.ok && isLikelyLevelData(parsed.obj) ? (parsed.obj as LevelData) : undefined;
@@ -339,6 +360,25 @@ async function saveLevelToDisk(name: string) {
 
           <Button onClick={() => void loadLevelFromDisk(levelName)}>Load</Button>
           <Button onClick={() => void saveLevelToDisk(levelName)}>Save</Button>
+
+          <Button
+            variant="outline"
+            onClick={() => {
+              const file = nextLevelFileName(levels);
+
+              const lvl = structuredClone(DEFAULT_LEVEL); 
+              lvl.meta = { ...lvl.meta, name: fileNameToMetaName(file) };
+              lvl.objects = []; // pewność
+
+              setLevelName(file);
+              setJsonText(JSON.stringify(lvl, null, 2));
+
+              setTrace(null);
+              setTraceStatus("idle");
+            }}
+          >
+            New Level
+          </Button>
 
           <Button variant="secondary" onClick={() => fileRef.current?.click()}>
             Load JSON file
