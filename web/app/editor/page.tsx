@@ -41,7 +41,12 @@ export default function EditorPage() {
   const [traceStatus, setTraceStatus] = useState<TraceStatus>("idle");
   const [traceError, setTraceError] = useState<string | null>(null);
   const [lastTraceAt, setLastTraceAt] = useState<number | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoBuild, setAutoBuild] = useState(false);
+  const [autoBuildAt, setAutoBuildAt] = useState<number | null>(null);
+  const [autoBuildError, setAutoBuildError] = useState<string | null>(null);
+  const autoBuildBusyRef = useRef(false);
+  const lastAutoBuildJsonRef = useRef<string>("");
+
 
   type RunStatus = "idle" | "running" | "ok" | "error";
   const [runStatus, setRunStatus] = useState<RunStatus>("idle");
@@ -94,17 +99,26 @@ export default function EditorPage() {
     await runTrace(txt);
   }
 
-  async function saveLevelToDisk(name: string) {
+  async function saveLevelToDisk(name: string, jsonOverride?: string) {
     const file = normalizeLevelName(name);
+    const body = jsonOverride ?? jsonText;
+
     const res = await fetch(`/api/levels/${encodeURIComponent(file)}`, {
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: jsonText,
+      body,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    setBaselineJson(jsonText);
+
+    if (!res.ok) {
+      const msg = await res.text();
+      throw new Error(`Save failed (HTTP ${res.status}): ${msg}`);
+    }
+
+    // skoro autosave zapisuje, to ustawiamy baseline = body (czyli "czysto")
+    setBaselineJson(body);
   }
+
 
   // Parse JSON
   const parsed = useMemo(() => parseJson(jsonText), [jsonText]);
@@ -227,42 +241,40 @@ export default function EditorPage() {
     }
   }
 
-  // Auto Refresh logic
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoBuild) return;
 
-    let alive = true;
-    let timeoutId: any = null;
-    const controller = new AbortController();
+    // nie odpalaj, jeśli JSON pusty
+    const body = jsonText;
+    if (!body || body.trim().length === 0) return;
 
-    const delayOk = 900;
-    const delayFail = 2500;
+    // jeśli nic się realnie nie zmieniło od ostatniego auto-build, pomiń
+    if (body === lastAutoBuildJsonRef.current) return;
 
-    const tick = async () => {
+    const id = window.setTimeout(async () => {
+      if (autoBuildBusyRef.current) return;
+
+      autoBuildBusyRef.current = true;
+      setAutoBuildError(null);
+
       try {
-        const ok = await refreshTrace(controller.signal);
-        if (!alive) return;
+        // 1) autosave wybranego levela
+        await saveLevelToDisk(levelName, body);
 
-        timeoutId = setTimeout(tick, ok ? delayOk : delayFail);
+        // 2) run trace dla tego samego JSON (Opcja A)
+        await runTrace(body);
+
+        lastAutoBuildJsonRef.current = body;
+        setAutoBuildAt(Date.now());
       } catch (e: any) {
-        if (String(e?.name) === "AbortError") return;
-
-        setTraceStatus("error");
-        setTraceError(String(e?.message ?? e));
-
-        if (!alive) return;
-        timeoutId = setTimeout(tick, delayFail);
+        setAutoBuildError(String(e?.message ?? e));
+      } finally {
+        autoBuildBusyRef.current = false;
       }
-    };
+    }, 500); // debounce 500ms
 
-    tick();
-
-    return () => {
-      alive = false;
-      controller.abort();
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [autoRefresh]);
+    return () => window.clearTimeout(id);
+  }, [autoBuild, jsonText, levelName]);
 
 
   // shortcuts
@@ -445,18 +457,21 @@ export default function EditorPage() {
           </Button>
 
           <div className="flex flex-col gap-2">
-            <Button variant="outline" onClick={() => void refreshTrace()}>
-              Refresh Trace (C++)
-            </Button>
 
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <input
                 type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
+                checked={autoBuild}
+                onChange={(e) => setAutoBuild(e.target.checked)}
               />
-              Auto-refresh
+              Auto-build (autosave + trace)
             </label>
+
+            <div className="text-xs text-muted-foreground">
+              {autoBuildAt ? <>Auto-build: {new Date(autoBuildAt).toLocaleTimeString()}</> : null}
+              {autoBuildError ? <span className="ml-2">• {autoBuildError}</span> : null}
+            </div>
+
 
             <Button
               variant="default"
