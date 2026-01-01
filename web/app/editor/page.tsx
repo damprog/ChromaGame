@@ -52,6 +52,9 @@ export default function EditorPage() {
   const [levels, setLevels] = useState<string[]>([]);
   const [levelName, setLevelName] = useState<string>("level01.json");
 
+  const [baselineJson, setBaselineJson] = useState<string>(""); // stan "czysto" po load/save
+  const isDirty = normalizeJsonText(jsonText) !== normalizeJsonText(baselineJson);
+
   //-----------------------
   // prawdopodonie do przeniesienia w inne miejsce
   //-----------------------
@@ -87,6 +90,7 @@ export default function EditorPage() {
 
     const txt = await res.text();
     setJsonText(txt);
+    setBaselineJson(txt);
     await runTrace(txt);
   }
 
@@ -99,6 +103,7 @@ export default function EditorPage() {
       body: jsonText,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    setBaselineJson(jsonText);
   }
 
   // Parse JSON
@@ -348,6 +353,26 @@ export default function EditorPage() {
     return base.endsWith(".json") ? base : `${base}.json`;
   }
 
+  function normalizeJsonText(txt: string) {
+    try {
+      return JSON.stringify(JSON.parse(txt));
+    } catch {
+      return txt.trim();
+    }
+  }
+
+  function requestSelectLevel(next: string) {
+    const file = normalizeLevelName(next);
+
+    if (isDirty) {
+      const ok = window.confirm("Masz niezapisane zmiany. Przełączyć level i je utracić?");
+      if (!ok) return;
+    }
+
+    setLevelName(file);
+  }
+
+
   const level: LevelData | undefined =
     parsed.ok && isLikelyLevelData(parsed.obj) ? (parsed.obj as LevelData) : undefined;
 
@@ -374,7 +399,9 @@ export default function EditorPage() {
             }}
           />
 
-          <select value={levelName} onChange={(e) => setLevelName(normalizeLevelName(e.target.value))}>
+          {isDirty ? <span className="text-xs text-muted-foreground">● Unsaved</span> : null}
+
+          <select value={levelName} onChange={(e) => requestSelectLevel(e.target.value)}>
             {levels.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
 
@@ -384,6 +411,11 @@ export default function EditorPage() {
           <Button
             variant="outline"
             onClick={() => {
+              if (isDirty) {
+                const ok = window.confirm("Masz niezapisane zmiany. Utworzyć nowy level i je utracić?");
+                if (!ok) return;
+              }
+
               const file = nextLevelFileName(levels);
 
               const lvl = structuredClone(DEFAULT_LEVEL);
