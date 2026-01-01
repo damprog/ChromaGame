@@ -72,15 +72,8 @@ export default function EditorPage() {
 
   //-----------------------
 
-
   // load levels
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/levels", { cache: "no-store" });
-      const j = await res.json();
-      if (j?.ok) setLevels(j.levels);
-    })();
-  }, []);
+  useEffect(() => { void refreshLevelsList(); }, []);
 
   async function loadLevelFromDisk(name: string) {
     const file = normalizeLevelName(name);
@@ -94,6 +87,7 @@ export default function EditorPage() {
 
     const txt = await res.text();
     setJsonText(txt);
+    await runTrace(txt);
   }
 
   async function saveLevelToDisk(name: string) {
@@ -138,6 +132,12 @@ export default function EditorPage() {
     window.localStorage.setItem(LS_KEY, jsonText);
   }, [mounted, jsonText]);
 
+  async function refreshLevelsList() {
+    const res = await fetch("/api/levels", { cache: "no-store" });
+    const j = await res.json();
+    if (j?.ok) setLevels(j.levels);
+  }
+
   async function onLoadFile(file: File) {
     const text = await file.text();
     setJsonText(text);
@@ -170,31 +170,31 @@ export default function EditorPage() {
     return true;
   }
 
-  async function runTrace() {
-    if (!parsed.ok || !isLikelyLevelData(parsed.obj)) {
-      setRunStatus("error");
-      setRunError("Level JSON is invalid — cannot run trace.");
-      return;
-    }
-
-
+  async function runTrace(jsonOverride?: string) {
     setRunStatus("running");
     setRunError(null);
     setRunOut(null);
     setRunErr(null);
 
-    let payload: any = null;
+    const body = jsonOverride ?? jsonText;
+
+    // (opcjonalnie) szybka walidacja: nie uruchamiaj na pustym
+    if (!body || body.trim().length === 0) {
+      setRunStatus("error");
+      setRunError("Level JSON is empty — cannot run trace.");
+      return;
+    }
 
     try {
       const res = await fetch("/api/trace/run", {
         method: "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: jsonText, // wysyłamy dokładnie to co edytujesz
+        body,
       });
 
-      // endpoint powinien zwracać JSON { ok, out, err, code } — ale robimy bezpiecznie:
       const text = await res.text();
+      let payload: any = null;
       try {
         payload = JSON.parse(text);
       } catch {
@@ -214,7 +214,7 @@ export default function EditorPage() {
       if (payload?.out) setRunOut(String(payload.out));
       if (payload?.err) setRunErr(String(payload.err));
 
-      // Najważniejsze: po uruchomieniu runtime od razu zaciągnij świeży trace
+      // po uruchomieniu runtime pobierz świeży trace.json
       await refreshTrace();
     } catch (e: any) {
       setRunStatus("error");
@@ -222,7 +222,7 @@ export default function EditorPage() {
     }
   }
 
-  // Refresh
+  // Auto Refresh logic
   useEffect(() => {
     if (!autoRefresh) return;
 
@@ -286,6 +286,26 @@ export default function EditorPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId, updateLevel]);
+
+  const [isAutoLoading, setIsAutoLoading] = useState(false);
+  // Auto-load after level change
+  useEffect(() => {
+    if (!levelName) return;
+
+    let alive = true;
+    setIsAutoLoading(true);
+
+    (async () => {
+      try {
+        await loadLevelFromDisk(levelName);
+        if (!alive) return;
+      } finally {
+        if (alive) setIsAutoLoading(false);
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [levelName]);
 
 
   function onDownload() {
@@ -358,7 +378,7 @@ export default function EditorPage() {
             {levels.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
 
-          <Button onClick={() => void loadLevelFromDisk(levelName)}>Load</Button>
+          <Button onClick={() => void refreshLevelsList()}>Refresh list</Button>
           <Button onClick={() => void saveLevelToDisk(levelName)}>Save</Button>
 
           <Button
@@ -366,7 +386,7 @@ export default function EditorPage() {
             onClick={() => {
               const file = nextLevelFileName(levels);
 
-              const lvl = structuredClone(DEFAULT_LEVEL); 
+              const lvl = structuredClone(DEFAULT_LEVEL);
               lvl.meta = { ...lvl.meta, name: fileNameToMetaName(file) };
               lvl.objects = []; // pewność
 
