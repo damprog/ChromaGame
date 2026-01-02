@@ -12,6 +12,7 @@ import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { traceWasm } from "@/lib/engineWasm";
 
 import {
   DEFAULT_LEVEL,
@@ -187,6 +188,23 @@ export default function EditorPage() {
     setTraceStatus("ok");
     setLastTraceAt(Date.now());
     return true;
+  }
+
+  async function runTraceWasm() {
+    if (!parsed.ok) return;
+
+    setTraceStatus("loading");
+    setTraceError(null);
+
+    try {
+      const t = await traceWasm(jsonText);
+      setTrace(t);
+      setTraceStatus("ok");
+      setLastTraceAt(Date.now());
+    } catch (e: any) {
+      setTraceStatus("error");
+      setTraceError(String(e?.message ?? e));
+    }
   }
 
   async function runTrace(jsonOverride?: string) {
@@ -472,6 +490,9 @@ export default function EditorPage() {
               {autoBuildError ? <span className="ml-2">• {autoBuildError}</span> : null}
             </div>
 
+            <Button variant="default" onClick={() => void runTraceWasm()}>
+              Run Trace (WASM)
+            </Button>
 
             <Button
               variant="default"
