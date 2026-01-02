@@ -2,6 +2,30 @@
 
 ## Quick start
 
+Najpewniej C++ odpal w “x64 Native Tools Command Prompt for VS 2022”, żeby cmake było w PATH. Jeśli manualnie sie wykonuje to trzeba opjedynczo komendy wklejać
+
+REM === KROK 1: Build WASM + kopiowanie do web/public/wasm ===
+cd /d D:\GitHub\damprog\ChromaGame
+rmdir /s /q engine\out\wasm
+
+call D:\Lokalnie\emsdk\emsdk_env.bat
+emcmake cmake -S engine/wasm -B engine/out/wasm -DCMAKE_BUILD_TYPE=Release
+cmake --build engine/out/wasm --target engine_wasm -j --verbose
+
+mkdir web\public\wasm 2>nul
+copy /y engine\out\wasm\engine_wasm.js   web\public\wasm\
+copy /y engine\out\wasm\engine_wasm.wasm web\public\wasm\
+
+A to odpal w zwykłym cmd:
+
+REM === KROK 2: Uruchomienie web next-server (dev) ===
+cd /d D:\GitHub\damprog\ChromaGame
+pnpm web:dev --hostname localhost
+
+----------------------------------------------------
+## WIĘCEJ WYJAŚNIEŃ
+----------------------------------------------------
+
 ### WEB 
 
 cd /d D:\GitHub\damprog\ChromaGame
@@ -12,7 +36,7 @@ lub w web\:
 pnpm dev
 
 tylko localhost:
-pnpm dev -- --hostname 127.0.0.1
+pnpm web:dev --hostname 127.0.0.1
 
 ### WASM — pełna przebudowa (CMake + Emscripten)
 
@@ -43,7 +67,7 @@ dir /b engine\out\wasm\*.wasm
 
 Skopiowanie WASM do Next (żeby działało “Run Trace (WASM)”)
 
----------------------
+----------------------------------------------------
 
 Docelowe miejsce to web/public/wasm/engine_wasm.js i .wasm.
 
@@ -56,6 +80,8 @@ copy /y engine\out\wasm\engine_wasm.wasm web\public\wasm\
 
 Jeśli po rebuildzie w przeglądarce wygląda jakby brało stary WASM: Ctrl+F5 (cache).
 
+----------------------------------------------------
+----------------------------------------------------
 
 
 ## 10. Struktura plików kluczowych
