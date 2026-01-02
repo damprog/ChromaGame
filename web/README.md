@@ -270,4 +270,45 @@ W edytorze dostępny przycisk "Benchmark (1000x)" który:
 - Użyj `--webpack` flag w dev script: `"dev": "next dev --webpack"`
 
 
+## 10. Struktura plików kluczowych
+
+```
+ChromaGame/
+├── engine/
+│   ├── core/              # C++ core engine
+│   │   ├── include/       # Level.h, RayTrace.h, etc.
+│   │   └── src/           # Implementacje
+│   ├── wasm/              # WASM bindings
+│   │   ├── CMakeLists.txt
+│   │   └── WasmBindings.cpp
+│   ├── runtime/           # C++ runtime (exe)
+│   └── out/
+│       ├── build/         # Native build
+│       └── wasm/          # WASM build output
+├── web/
+│   ├── app/
+│   │   ├── editor/        # Edytor strony
+│   │   └── api/           # API routes
+│   ├── components/
+│   │   └── editor/        # GridCanvas, Toolbox, etc.
+│   ├── lib/
+│   │   └── engineWasm.ts  # WASM loader
+│   ├── public/
+│   │   └── wasm/         # engine_wasm.js, engine_wasm.wasm
+│   └── next.config.ts    # Webpack config dla WASM
+└── shared/
+    ├── levels/            # Poziomy JSON
+    └── out/               # trace.json (legacy)
+```
+
+## 11. Najbliższe zadania / TODO
+
+- [ ] Automatyzacja build WASM + copy do public (skrypt/skrypt build)
+- [ ] Wersjonowanie plików WASM (cache busting)
+- [ ] Dokumentacja API endpoints
+- [ ] Testy jednostkowe dla core C++
+- [ ] CI/CD pipeline dla WASM build
+
+---
+
 **Ostatnia aktualizacja:** 02.01.2026 (wersja projektu z WASM + benchmark)
