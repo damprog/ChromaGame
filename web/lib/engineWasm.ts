@@ -1,11 +1,4 @@
-export type TraceJson = {
-  hitWall?: boolean;
-  hitTarget?: boolean;
-  hitTargetId?: string;
-  segments?: Array<{ x0: number; y0: number; x1: number; y1: number }>;
-  ok?: boolean;
-  error?: string;
-};
+import type { TraceJson } from "@/shared/trace";
 
 type EmscriptenModule = {
   ccall: (name: string, returnType: string | null, argTypes: string[], args: any[]) => any;
@@ -35,5 +28,25 @@ export async function traceWasm(levelJson: string): Promise<TraceJson> {
 
   mod.ccall("freeString", null, ["number"], [ptr]);
 
-  return JSON.parse(out) as TraceJson;
+  const parsed = JSON.parse(out) as {
+    ok?: boolean;
+    error?: string;
+    hitWall?: boolean;
+    hitTarget?: boolean;
+    hitTargetId?: string;
+    segments?: Array<{ x0: number; y0: number; x1: number; y1: number }>;
+  };
+
+  // Jeśli błąd, rzuć wyjątek
+  if (parsed.ok === false || parsed.error) {
+    throw new Error(parsed.error || "Trace failed");
+  }
+
+  // Konwersja do TraceJson - segments musi być tablicą (nie opcjonalne)
+  return {
+    segments: parsed.segments || [],
+    hitWall: parsed.hitWall,
+    hitTarget: parsed.hitTarget,
+    hitTargetId: parsed.hitTargetId,
+  };
 }
