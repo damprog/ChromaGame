@@ -1,2 +1,2 @@
-cd /d D:\GitHub\damprog\ChromaGame\web
-pnpm dev --hostname localhost
+cd /d D:\GitHub\damprog\ChromaGame
+pnpm web:dev --hostname localhost
