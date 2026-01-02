@@ -55,6 +55,13 @@ export default function EditorPage() {
   const [runOut, setRunOut] = useState<string | null>(null);
   const [runErr, setRunErr] = useState<string | null>(null);
 
+  type BenchmarkStatus = "idle" | "running" | "done";
+  const [benchmarkStatus, setBenchmarkStatus] = useState<BenchmarkStatus>("idle");
+  const [benchmarkResults, setBenchmarkResults] = useState<{
+    wasm: { totalMs: number; avgMs: number };
+    cpp: { totalMs: number; avgMs: number };
+  } | null>(null);
+
   const [levels, setLevels] = useState<string[]>([]);
   const [levelName, setLevelName] = useState<string>("level01.json");
 
@@ -256,6 +263,70 @@ export default function EditorPage() {
     } catch (e: any) {
       setRunStatus("error");
       setRunError(String(e?.message ?? e));
+    }
+  }
+
+  async function runBenchmark() {
+    if (!parsed.ok) {
+      alert("Invalid level JSON - cannot run benchmark");
+      return;
+    }
+
+    setBenchmarkStatus("running");
+    setBenchmarkResults(null);
+
+    const iterations = 1000;
+    const levelJson = jsonText;
+
+    try {
+      // Benchmark WASM
+      console.log("Starting WASM benchmark...");
+      const wasmStart = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        await traceWasm(levelJson);
+      }
+      const wasmEnd = performance.now();
+      const wasmTotal = wasmEnd - wasmStart;
+      const wasmAvg = wasmTotal / iterations;
+
+      // Benchmark C++ (through API)
+      console.log("Starting C++ API benchmark...");
+      const cppStart = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        const res = await fetch("/api/trace/run", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: levelJson,
+        });
+        if (!res.ok) {
+          throw new Error(`C++ API failed: HTTP ${res.status}`);
+        }
+        // Retry logic to ensure trace.json is written
+        let traceRes: Response | null = null;
+        for (let retry = 0; retry < 10; retry++) {
+          traceRes = await fetch("/api/trace", { cache: "no-store" });
+          if (traceRes.ok) break;
+          await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        if (!traceRes || !traceRes.ok) {
+          throw new Error(`Trace fetch failed after retries: HTTP ${traceRes?.status ?? "unknown"}`);
+        }
+        await traceRes.json();
+      }
+      const cppEnd = performance.now();
+      const cppTotal = cppEnd - cppStart;
+      const cppAvg = cppTotal / iterations;
+
+      setBenchmarkResults({
+        wasm: { totalMs: wasmTotal, avgMs: wasmAvg },
+        cpp: { totalMs: cppTotal, avgMs: cppAvg },
+      });
+      setBenchmarkStatus("done");
+    } catch (e: any) {
+      setBenchmarkStatus("idle");
+      alert(`Benchmark failed: ${e?.message ?? e}`);
+      console.error("Benchmark error:", e);
     }
   }
 
@@ -501,6 +572,39 @@ export default function EditorPage() {
             >
               {runStatus === "running" ? "Running Trace..." : "Run Trace (C++)"}
             </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => void runBenchmark()}
+              disabled={benchmarkStatus === "running" || !parsed.ok}
+            >
+              {benchmarkStatus === "running" ? "Running Benchmark..." : "Benchmark (1000x)"}
+            </Button>
+
+            {benchmarkResults && (
+              <div className="text-xs border rounded p-2 bg-muted">
+                <div className="font-semibold mb-1">Benchmark Results (1000 iterations):</div>
+                <div className="space-y-1">
+                  <div>
+                    <b>WASM:</b> Total: {benchmarkResults.wasm.totalMs.toFixed(2)}ms, 
+                    Avg: {benchmarkResults.wasm.avgMs.toFixed(3)}ms
+                  </div>
+                  <div>
+                    <b>C++ API:</b> Total: {benchmarkResults.cpp.totalMs.toFixed(2)}ms, 
+                    Avg: {benchmarkResults.cpp.avgMs.toFixed(3)}ms
+                  </div>
+                  <div className="mt-1 pt-1 border-t">
+                    <b>Speedup:</b>{" "}
+                    {benchmarkResults.cpp.avgMs > 0
+                      ? `${(benchmarkResults.cpp.avgMs / benchmarkResults.wasm.avgMs).toFixed(2)}x`
+                      : "N/A"}{" "}
+                    {benchmarkResults.wasm.avgMs < benchmarkResults.cpp.avgMs
+                      ? "(WASM faster)"
+                      : "(C++ API faster)"}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="text-xs text-muted-foreground">
               Run: <b>{runStatus}</b>
