@@ -2,25 +2,12 @@
 
 ## Quick start
 
-Najpewniej C++ odpal w “x64 Native Tools Command Prompt for VS 2022”, żeby cmake było w PATH. Jeśli manualnie sie wykonuje to trzeba opjedynczo komendy wklejać
+build_wasm.bat oraz rebuild_wasm.bat wymaga uruchomienia z “x64 Native Tools Command Prompt for VS 2022” (chodzi o dostępnosć cmake).
 
-REM === KROK 1: Build WASM + kopiowanie do web/public/wasm ===
 cd /d D:\GitHub\damprog\ChromaGame
-rmdir /s /q engine\out\wasm
-
-call D:\Lokalnie\emsdk\emsdk_env.bat
-emcmake cmake -S engine/wasm -B engine/out/wasm -DCMAKE_BUILD_TYPE=Release
-cmake --build engine/out/wasm --target engine_wasm -j --verbose
-
-mkdir web\public\wasm 2>nul
-copy /y engine\out\wasm\engine_wasm.js   web\public\wasm\
-copy /y engine\out\wasm\engine_wasm.wasm web\public\wasm\
-
-A to odpal w zwykłym cmd:
-
-REM === KROK 2: Uruchomienie web next-server (dev) ===
-cd /d D:\GitHub\damprog\ChromaGame
-pnpm web:dev --hostname localhost
+build_wasm.bat      - przebuduj c++ bez konfiguracji
+rebuild_wasm.bat    - usuń cache i skonfiguruj i przebuduj
+start.bat           - wystartuj web
 
 ----------------------------------------------------
 ## WIĘCEJ WYJAŚNIEŃ
