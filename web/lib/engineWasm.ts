@@ -18,7 +18,7 @@ async function getModule(): Promise<EmscriptenModule> {
   if (!modPromise) {
     modPromise = (async () => {
       // engine_wasm.js eksportuje "factory" (bo MODULARIZE=1)
-      const m: any = await import("/wasm/engine_wasm.js");
+      const m: any = await import("../public/wasm/engine_wasm.js");
       const factory = m.default ?? m;
       const mod = await factory();
       return mod as EmscriptenModule;
