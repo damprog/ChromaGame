@@ -75,6 +75,8 @@ extern "C" {
 
   // Zwraca JSON trace jako string w pamięci WASM (malloc). JS musi wywołać freeString(ptr).
   EXPORT char* traceLevel(const char* levelJson) {
+    printf("[wasm] traceLevel called\n"); fflush(stdout);
+
     if (!levelJson) {
       return DupCString("{\"ok\":false,\"error\":\"null input\"}");
     }

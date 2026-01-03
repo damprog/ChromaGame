@@ -61,7 +61,7 @@ export function PropertiesPanel({
           <div className="flex flex-col gap-1">
             <div className="text-xs text-muted-foreground">dir</div>
             <div className="grid grid-cols-2 gap-2">
-              {(["N", "E", "S", "W"] as const).map((d) => (
+              {(["N", "W", "S", "E"] as const).map((d) => (
                 <Button
                   key={d}
                   variant={obj.dir === d ? "default" : "secondary"}
@@ -94,7 +94,7 @@ export function PropertiesPanel({
         <div className="flex flex-col gap-1">
           <div className="text-xs text-muted-foreground">angle</div>
           <div className="grid grid-cols-2 gap-2">
-            {[0, 90, 180, 270].map((a) => (
+            {[45, 135, 225, 315].map((a) => (
               <Button
                 key={a}
                 variant={obj.angle === a ? "default" : "secondary"}

@@ -9,7 +9,52 @@ type EmscriptenModule = {
   UTF8ToString: (ptr: number) => string;
 };
 
+declare global {
+  interface Window {
+    __engineWasmModule?: EmscriptenModule;
+    __engineWasmReady?: boolean;
+    __engineWasmError?: any;
+    __engineWasmLog?: string[];
+  }
+}
+
 let modPromise: Promise<EmscriptenModule> | null = null;
+
+const LOG_MAX_LINES = 2000;
+
+function getLogArray(): string[] {
+  if (typeof window === "undefined") return [];
+  if (!window.__engineWasmLog) window.__engineWasmLog = [];
+  return window.__engineWasmLog;
+}
+
+/** Dopisz linię do “konsoli” WASM z poziomu JS (np. z catch). */
+export function pushWasmLogLine(line: string) {
+  if (typeof window === "undefined") return;
+  const arr = getLogArray();
+  arr.push(String(line));
+  if (arr.length > LOG_MAX_LINES) arr.splice(0, arr.length - LOG_MAX_LINES);
+}
+
+/** Podejrzyj log bez czyszczenia. */
+export function peekWasmLog(): string {
+  if (typeof window === "undefined") return "";
+  return getLogArray().join("\n");
+}
+
+/** Pobierz log i wyczyść bufor (idealne po każdym trace). */
+export function takeWasmLog(): string {
+  if (typeof window === "undefined") return "";
+  const arr = getLogArray();
+  const out = arr.join("\n");
+  window.__engineWasmLog = [];
+  return out;
+}
+
+export function clearWasmLog() {
+  if (typeof window === "undefined") return;
+  window.__engineWasmLog = [];
+}
 
 async function getModule(): Promise<EmscriptenModule> {
   if (!modPromise) {
@@ -21,10 +66,11 @@ async function getModule(): Promise<EmscriptenModule> {
       const scriptId = "engine-wasm-loader";
       const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
 
+      // Jeśli już załadowany — tylko czekamy aż moduł będzie gotowy
       if (existingScript) {
         return new Promise<EmscriptenModule>((resolve, reject) => {
           const checkInterval = setInterval(() => {
-            const mod = (window as any).__engineWasmModule as EmscriptenModule | undefined;
+            const mod = window.__engineWasmModule as EmscriptenModule | undefined;
             if (mod) {
               clearInterval(checkInterval);
               resolve(mod);
@@ -38,32 +84,57 @@ async function getModule(): Promise<EmscriptenModule> {
         });
       }
 
+      // Upewnij się, że bufor logów istnieje
+      getLogArray();
+
       return new Promise<EmscriptenModule>((resolve, reject) => {
         const script = document.createElement("script");
         script.id = scriptId;
         script.type = "module";
+
+        // Klucz: print/printErr przekierowane do window.__engineWasmLog
         script.textContent = `
           import Module from '/wasm/engine_wasm.js';
           const factory = Module.default || Module;
-          factory({ locateFile: (p) => '/wasm/' + p })
-            .then(instance => { window.__engineWasmModule = instance; window.__engineWasmReady = true; })
-            .catch(err => { window.__engineWasmError = err; });
+
+          const MAX = ${LOG_MAX_LINES};
+          const push = (kind, msg) => {
+            const arr = window.__engineWasmLog || (window.__engineWasmLog = []);
+            const s = (msg === undefined || msg === null) ? '' : String(msg);
+            const line = kind ? ('[' + kind + '] ' + s) : s;
+            arr.push(line);
+            if (arr.length > MAX) arr.splice(0, arr.length - MAX);
+          };
+
+          factory({
+            locateFile: (p) => '/wasm/' + p,
+            print: (s) => push('out', s),
+            printErr: (s) => push('err', s),
+          })
+          .then(instance => {
+            window.__engineWasmModule = instance;
+            window.__engineWasmReady = true;
+          })
+          .catch(err => {
+            push('err', err && err.stack ? err.stack : err);
+            window.__engineWasmError = err;
+          });
         `;
 
         script.onerror = () => reject(new Error("Failed to load engine_wasm.js"));
 
-        (window as any).__engineWasmReady = false;
-        (window as any).__engineWasmError = null;
+        window.__engineWasmReady = false;
+        window.__engineWasmError = null;
 
         const checkReady = setInterval(() => {
-          if ((window as any).__engineWasmReady) {
+          if (window.__engineWasmReady) {
             clearInterval(checkReady);
-            const mod = (window as any).__engineWasmModule as EmscriptenModule;
+            const mod = window.__engineWasmModule as EmscriptenModule | undefined;
             if (mod) resolve(mod);
             else reject(new Error("WASM module instance is null"));
-          } else if ((window as any).__engineWasmError) {
+          } else if (window.__engineWasmError) {
             clearInterval(checkReady);
-            reject((window as any).__engineWasmError);
+            reject(window.__engineWasmError);
           }
         }, 50);
 
@@ -81,7 +152,7 @@ async function getModule(): Promise<EmscriptenModule> {
 
 function ensureEngineJsonForTrace(levelJson: string): string {
   const p = parseJson(levelJson);
-  if (!p.ok) return levelJson; // i tak poleci błąd później
+  if (!p.ok) return levelJson;
 
   if (isLevelV2(p.obj)) {
     const v2 = p.obj as LevelDataV2;
@@ -94,10 +165,8 @@ function ensureEngineJsonForTrace(levelJson: string): string {
 
 export async function traceWasm(levelJson: string): Promise<TraceJson> {
   const mod = await getModule();
-
   const engineJson = ensureEngineJsonForTrace(levelJson);
 
-  // helper: pojedynczy trace na danym json (engine v1)
   const traceOnce = (json: string): TraceJson => {
     const ptr = mod.ccall("traceLevel", "number", ["string"], [json]) as number;
     const out = mod.UTF8ToString(ptr);
@@ -124,12 +193,11 @@ export async function traceWasm(levelJson: string): Promise<TraceJson> {
     };
   };
 
-  // Multi-laser: jeśli silnik liczy tylko pierwszy laser, zrób trace per laser i sklej.
+  // Multi-laser: jeśli silnik liczy tylko pierwszy laser, robimy trace per laser i sklejamy.
   let obj: any;
   try {
     obj = JSON.parse(engineJson);
   } catch {
-    // fallback
     return traceOnce(engineJson);
   }
 
@@ -145,10 +213,7 @@ export async function traceWasm(levelJson: string): Promise<TraceJson> {
   const merged: TraceJson = { segments: [], hitWall: false, hitTarget: false, hitTargetId: undefined };
 
   for (const lz of lasers) {
-    const perLevel = {
-      ...obj,
-      objects: [lz, ...nonLasers], // tylko ten laser jako “pierwszy/jedyny”
-    };
+    const perLevel = { ...obj, objects: [lz, ...nonLasers] };
     const t = traceOnce(JSON.stringify(perLevel));
 
     merged.segments.push(...(t.segments ?? []));
@@ -159,4 +224,3 @@ export async function traceWasm(levelJson: string): Promise<TraceJson> {
 
   return merged;
 }
-
