@@ -58,7 +58,7 @@
       "id": "L3",
       "type": "laser",
       "x": 2,
-      "y": 8,
+      "y": 7,
       "dir": "E",
       "color": "R"
     }
@@ -70,16 +70,5 @@
   "rules": {
     "moveLimit": null,
     "requireAllTargets": true
-  },
-  "dev": {
-    "solution": [
-      {
-        "id": "M3",
-        "type": "mirror",
-        "x": 6,
-        "y": 1,
-        "angle": 45
-      }
-    ]
   }
 }

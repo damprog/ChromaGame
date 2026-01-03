@@ -27,15 +27,6 @@
       "accept": [
         "R"
       ]
-    },
-    {
-      "id": "T1",
-      "type": "target",
-      "x": 9,
-      "y": 4,
-      "accept": [
-        "R"
-      ]
     }
   ],
   "inventory": {
@@ -45,16 +36,5 @@
   "rules": {
     "moveLimit": null,
     "requireAllTargets": true
-  },
-  "dev": {
-    "solution": [
-      {
-        "id": "M3",
-        "type": "mirror",
-        "x": 6,
-        "y": 1,
-        "angle": 45
-      }
-    ]
   }
 }

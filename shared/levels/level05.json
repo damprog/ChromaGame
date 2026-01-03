@@ -1,0 +1,51 @@
+{
+  "version": 2,
+  "meta": {
+    "id": "level05",
+    "name": "Level 05",
+    "author": "you",
+    "difficulty": 1
+  },
+  "grid": {
+    "w": 20,
+    "h": 12,
+    "cellSize": 32
+  },
+  "fixed": [
+    {
+      "id": "L1",
+      "type": "laser",
+      "x": 3,
+      "y": 5,
+      "dir": "E",
+      "color": "R"
+    },
+    {
+      "id": "L2",
+      "type": "laser",
+      "x": 8,
+      "y": 7,
+      "dir": "E",
+      "color": "R"
+    },
+    {
+      "id": "L3",
+      "type": "laser",
+      "x": 8,
+      "y": 9,
+      "dir": "E",
+      "color": "R"
+    }
+  ],
+  "inventory": {
+    "mirror": 3
+  },
+  "initialPlayer": [],
+  "rules": {
+    "moveLimit": null,
+    "requireAllTargets": true
+  },
+  "dev": {
+    "solution": []
+  }
+}

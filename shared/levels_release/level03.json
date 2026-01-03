@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "meta": {
+    "name": "Level 03",
+    "author": "you",
+    "difficulty": 1
+  },
+  "grid": {
+    "w": 20,
+    "h": 12,
+    "cellSize": 32
+  },
+  "fixed": [],
+  "inventory": {
+    "mirror": 3
+  },
+  "initialPlayer": [],
+  "rules": {
+    "moveLimit": null,
+    "requireAllTargets": true
+  }
+}

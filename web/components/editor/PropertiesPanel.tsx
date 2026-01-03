@@ -94,7 +94,7 @@ export function PropertiesPanel({
         <div className="flex flex-col gap-1">
           <div className="text-xs text-muted-foreground">angle</div>
           <div className="grid grid-cols-2 gap-2">
-            {[45, 90, 135, 180].map((a) => (
+            {[0, 90, 180, 270].map((a) => (
               <Button
                 key={a}
                 variant={obj.angle === a ? "default" : "secondary"}
